@@ -39,6 +39,10 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/auth", googleAuthRoutes);
 
+//user routes
+const userRoutes = require("./routes/userRoutes");
+app.use("/api/auth/users", userRoutes);
+
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
