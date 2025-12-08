@@ -6,7 +6,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const googleAuthRoutes = require("./routes/googleAuthRoutes");
 const userRoutes = require("./routes/userRoutes");
-const userController = require("../controllers/userController");
+const chatRoutes = require("./routes/chatRoutes");
 
 const app = express();
 
@@ -47,13 +47,14 @@ app.use("/api/auth", googleAuthRoutes);
 // USER ROUTES
 app.use("/api", userRoutes);
 
-// update profile (PUT)
-router.put("/users/me", userController.uploadAvatar, userController.updateMe);
-
 // TEST ROUTE
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
+
+// CHAT ROUTES
+app.use("/api", userRoutes);
+app.use("/api", chatRoutes);
 
 // DEBUG: LIST ROUTES (SESUDAH SEMUA ROUTE DIMOUNT)
 console.log(">>> FILE index.js TERLOAD <<<");
