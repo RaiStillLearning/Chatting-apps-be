@@ -5,14 +5,16 @@ const cors = require("cors");
 
 const authRoutes = require("./routes/authRoutes");
 const googleAuthRoutes = require("./routes/googleAuthRoutes");
+const userRoutes = require("./routes/userRoutes");
+const userController = require("../controllers/userController");
 
 const app = express();
 
-// ✅ 1. BODY PARSER HARUS DI ATAS ROUTE
+// BODY PARSER
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ 2. CORS
+// CORS
 app.use(
   cors({
     origin: "http://localhost:3000",
@@ -20,7 +22,7 @@ app.use(
   })
 );
 
-// ✅ 3. SESSION
+// SESSION
 app.use(
   session({
     name: "nextjs-auth-session",
@@ -35,16 +37,44 @@ app.use(
   })
 );
 
-// ✅ 4. ROUTES (HARUS SETELAH express.json)
+const list = require("express-list-endpoints");
+console.log(list(app));
+
+// AUTH ROUTES
 app.use("/api/auth", authRoutes);
 app.use("/api/auth", googleAuthRoutes);
 
-//user routes
-const userRoutes = require("./routes/userRoutes");
-app.use("/api/auth/users", userRoutes);
+// USER ROUTES
+app.use("/api", userRoutes);
 
+// update profile (PUT)
+router.put("/users/me", userController.uploadAvatar, userController.updateMe);
+
+// TEST ROUTE
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
+
+// DEBUG: LIST ROUTES (SESUDAH SEMUA ROUTE DIMOUNT)
+console.log(">>> FILE index.js TERLOAD <<<");
+console.log("ROUTE TERDAFTAR:");
+
+if (app._router && app._router.stack) {
+  app._router.stack.forEach((layer) => {
+    if (layer.route) {
+      const method = layer.route.stack[0].method.toUpperCase();
+      console.log(method, layer.route.path);
+    } else if (layer.name === "router" && layer.handle.stack) {
+      layer.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          const method = handler.route.stack[0].method.toUpperCase();
+          console.log(method, handler.route.path);
+        }
+      });
+    }
+  });
+} else {
+  console.log("Router belum siap pada saat index.js dijalankan.");
+}
 
 module.exports = app;
