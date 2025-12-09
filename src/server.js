@@ -35,11 +35,6 @@ io.on("connection", (socket) => {
   });
 });
 
-io.to(receiverId).emit("chat:updateList", {
-  from: sender,
-  message: text,
-});
-
 // 6. Start server
 server.listen(5000, "0.0.0.0", () => {
   console.log("🚀 Server is running on port 5000");

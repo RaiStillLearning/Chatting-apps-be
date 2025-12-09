@@ -1,3 +1,4 @@
+// models/message.model.js
 const mongoose = require("mongoose");
 
 const MessageSchema = new mongoose.Schema(
@@ -6,6 +7,7 @@ const MessageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Chat",
       required: true,
+      index: true,
     },
     sender: {
       type: mongoose.Schema.Types.ObjectId,
@@ -14,13 +16,14 @@ const MessageSchema = new mongoose.Schema(
     },
     text: {
       type: String,
-      trim: true,
       required: true,
+      trim: true,
     },
   },
   { timestamps: true }
 );
 
-const Message =
-  mongoose.models.Message || mongoose.model("Message", MessageSchema);
-module.exports = Message;
+// Index untuk query performa
+MessageSchema.index({ chat: 1, createdAt: 1 });
+
+module.exports = mongoose.model("Message", MessageSchema);

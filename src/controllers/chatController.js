@@ -1,8 +1,8 @@
+// controllers/chatController.js
 const Chat = require("../models/chat.model");
-const Message = require("../models/message.model");
 const User = require("../models/user.model");
 
-// START / GET EXISTING CHAT DENGAN USER LAIN
+// START / GET EXISTING CHAT
 exports.startChat = async (req, res) => {
   try {
     const meId = req.session.userId;
@@ -14,11 +14,9 @@ exports.startChat = async (req, res) => {
       return res.status(400).json({ message: "Cannot chat with yourself" });
     }
 
-    // cek user target beneran ada
     const target = await User.findById(userId);
     if (!target) return res.status(404).json({ message: "User not found" });
 
-    // cari chat existing
     let chat = await Chat.findOne({
       participants: { $all: [meId, userId], $size: 2 },
     });
@@ -26,17 +24,18 @@ exports.startChat = async (req, res) => {
     if (!chat) {
       chat = await Chat.create({
         participants: [meId, userId],
+        messages: [],
       });
     }
 
     res.json(chat);
   } catch (err) {
     console.error("START CHAT ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-// AMBIL SEMUA MESSAGE DI CHAT
+// GET MESSAGES (Embedded)
 exports.getMessages = async (req, res) => {
   try {
     const meId = req.session.userId;
@@ -44,26 +43,26 @@ exports.getMessages = async (req, res) => {
 
     if (!meId) return res.status(401).json({ message: "Unauthorized" });
 
-    // pastikan user bagian dari chat
-    const chat = await Chat.findById(chatId);
+    const chat = await Chat.findById(chatId).populate(
+      "messages.sender",
+      "username displayName avatarUrl"
+    );
+
     if (!chat) return res.status(404).json({ message: "Chat not found" });
 
-    if (!chat.participants.includes(meId)) {
+    if (!chat.participants.some((p) => p.toString() === meId.toString())) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    const messages = await Message.find({ chat: chatId })
-      .sort({ createdAt: 1 })
-      .populate("sender", "username displayName avatarUrl");
-
-    res.json(messages);
+    // Return messages array dari chat document
+    res.json(chat.messages);
   } catch (err) {
     console.error("GET MESSAGES ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-// KIRIM MESSAGE (kalau mau via REST, selain socket)
+// SEND MESSAGE (Embedded)
 exports.sendMessage = async (req, res) => {
   try {
     const meId = req.session.userId;
@@ -77,36 +76,40 @@ exports.sendMessage = async (req, res) => {
     const chat = await Chat.findById(chatId);
     if (!chat) return res.status(404).json({ message: "Chat not found" });
 
-    if (!chat.participants.includes(meId)) {
+    if (!chat.participants.some((p) => p.toString() === meId.toString())) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    const message = await Message.create({
-      chat: chatId,
+    // Push message ke array
+    const newMessage = {
       sender: meId,
       text: text.trim(),
-    });
+      createdAt: new Date(),
+    };
 
-    chat.lastMessageAt = new Date();
+    chat.messages.push(newMessage);
+    chat.lastMessage = text.trim();
     await chat.save();
 
-    // emit ke room (kalau kita simpan io di app)
+    // Populate sender info untuk response
+    await chat.populate("messages.sender", "username displayName avatarUrl");
+
+    const savedMessage = chat.messages[chat.messages.length - 1];
+
+    // Emit to socket
     const io = req.app.get("io");
     if (io) {
-      const populatedSender = await message.populate(
-        "sender",
-        "username displayName avatarUrl"
-      );
-      io.to(chatId.toString()).emit("new_message", populatedSender);
+      io.to(chatId.toString()).emit("new_message", savedMessage);
     }
 
-    res.status(201).json(message);
+    res.status(201).json(savedMessage);
   } catch (err) {
     console.error("SEND MESSAGE ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
+// GET CHAT LIST
 exports.getChatList = async (req, res) => {
   try {
     const userId = req.session.userId;
@@ -116,31 +119,30 @@ exports.getChatList = async (req, res) => {
     }
 
     const chats = await Chat.find({
-      members: { $in: [userId] },
+      participants: { $in: [userId] },
     })
       .sort({ updatedAt: -1 })
+      .populate("participants", "displayName username avatarUrl")
       .limit(50)
       .lean();
 
-    const result = [];
-
-    for (const chat of chats) {
-      const otherId = chat.members.find((id) => id.toString() !== userId);
-      const otherUser = await User.findById(otherId).select(
-        "displayName username avatarUrl"
+    const result = chats.map((chat) => {
+      const otherUser = chat.participants.find(
+        (p) => p._id.toString() !== userId.toString()
       );
 
-      result.push({
-        chatId: chat._id,
-        user: otherUser,
+      return {
+        _id: chat._id,
+        participants: chat.participants,
+        otherUser: otherUser || null,
         lastMessage: chat.lastMessage || "",
         updatedAt: chat.updatedAt,
-      });
-    }
+      };
+    });
 
     res.json(result);
   } catch (err) {
     console.error("CHAT LIST ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
