@@ -35,6 +35,28 @@ io.on("connection", (socket) => {
   });
 });
 
+const onlineUsers = new Map();
+
+io.on("connection", (socket) => {
+  console.log("connected:", socket.id);
+
+  socket.on("register", (userId) => {
+    onlineUsers.set(userId, socket.id);
+  });
+
+  socket.on("join_chat", (chatId) => {
+    socket.join(chatId);
+  });
+
+  socket.on("disconnect", () => {
+    for (let [uid, sid] of onlineUsers.entries()) {
+      if (sid === socket.id) onlineUsers.delete(uid);
+    }
+  });
+});
+
+app.set("onlineUsers", onlineUsers);
+
 // 6. Start server
 server.listen(5000, "0.0.0.0", () => {
   console.log("🚀 Server is running on port 5000");

@@ -44,6 +44,10 @@ console.log(list(app));
 app.use("/api/auth", authRoutes);
 app.use("/api/auth", googleAuthRoutes);
 
+//notifications
+const notificationRoutes = require("./routes/notificationRoutes");
+app.use("/api", notificationRoutes);
+
 // USER ROUTES
 app.use("/api", userRoutes);
 

@@ -1,8 +1,43 @@
-// controllers/chatController.js
 const Chat = require("../models/chat.model");
 const User = require("../models/user.model");
+const Notification = require("../models/notification.model");
 
-// START / GET EXISTING CHAT
+/* =========================
+   START CHAT
+========================= */
+
+const receiverId = chat.participants.find(
+  (p) => p.toString() !== meId.toString()
+);
+
+// 1. Simpan notifikasi ke database
+await Notification.create({
+  user: receiverId,
+  fromUser: meId,
+  text,
+  chatId,
+  isRead: false,
+});
+
+// 2. Emit notifikasi realtime via socket.io
+const io = req.app.get("io");
+const onlineUsers = req.app.get("onlineUsers");
+
+if (io) {
+  const receiverSocketId = onlineUsers.get(receiverId.toString());
+
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit("chat:notification", {
+      text,
+      chatId,
+      senderId: meId,
+      avatarUrl: req.user.avatarUrl,
+      senderName: req.user.displayName,
+      senderUsername: req.user.username,
+      createdAt: new Date().toISOString(),
+    });
+  }
+}
 exports.startChat = async (req, res) => {
   try {
     const meId = req.session.userId;
@@ -35,13 +70,13 @@ exports.startChat = async (req, res) => {
   }
 };
 
-// GET MESSAGES (Embedded)
+/* =========================
+   GET MESSAGES
+========================= */
 exports.getMessages = async (req, res) => {
   try {
     const meId = req.session.userId;
     const { chatId } = req.params;
-
-    if (!meId) return res.status(401).json({ message: "Unauthorized" });
 
     const chat = await Chat.findById(chatId).populate(
       "messages.sender",
@@ -50,11 +85,6 @@ exports.getMessages = async (req, res) => {
 
     if (!chat) return res.status(404).json({ message: "Chat not found" });
 
-    if (!chat.participants.some((p) => p.toString() === meId.toString())) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-
-    // Return messages array dari chat document
     res.json(chat.messages);
   } catch (err) {
     console.error("GET MESSAGES ERROR:", err);
@@ -62,25 +92,21 @@ exports.getMessages = async (req, res) => {
   }
 };
 
-// SEND MESSAGE (Embedded)
+/* =========================
+   SEND MESSAGE
+========================= */
 exports.sendMessage = async (req, res) => {
   try {
     const meId = req.session.userId;
     const { chatId } = req.params;
     const { text } = req.body;
 
-    if (!meId) return res.status(401).json({ message: "Unauthorized" });
     if (!text || !text.trim())
-      return res.status(400).json({ message: "Text is required" });
+      return res.status(400).json({ message: "Text required" });
 
     const chat = await Chat.findById(chatId);
     if (!chat) return res.status(404).json({ message: "Chat not found" });
 
-    if (!chat.participants.some((p) => p.toString() === meId.toString())) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-
-    // Push message ke array
     const newMessage = {
       sender: meId,
       text: text.trim(),
@@ -91,56 +117,48 @@ exports.sendMessage = async (req, res) => {
     chat.lastMessage = text.trim();
     await chat.save();
 
-    // Populate sender info untuk response
-    await chat.populate("messages.sender", "username displayName avatarUrl");
-
-    const savedMessage = chat.messages[chat.messages.length - 1];
-
-    // Emit to socket
     const io = req.app.get("io");
+    const onlineUsers = req.app.get("onlineUsers");
+
     if (io) {
-      io.to(chatId.toString()).emit("new_message", savedMessage);
+      io.to(chatId).emit("new_message", newMessage);
+
+      const receiverId = chat.participants.find(
+        (p) => p.toString() !== meId.toString()
+      );
+
+      const receiverSocket = onlineUsers.get(receiverId.toString());
+      if (receiverSocket) {
+        io.to(receiverSocket).emit("chat:notification", {
+          text,
+          senderId: meId,
+          chatId,
+        });
+      }
     }
 
-    res.status(201).json(savedMessage);
+    res.status(201).json(newMessage);
   } catch (err) {
     console.error("SEND MESSAGE ERROR:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-// GET CHAT LIST
+/* =========================
+   GET CHAT LIST
+========================= */
 exports.getChatList = async (req, res) => {
   try {
     const userId = req.session.userId;
 
-    if (!userId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
     const chats = await Chat.find({
       participants: { $in: [userId] },
     })
-      .sort({ updatedAt: -1 })
       .populate("participants", "displayName username avatarUrl")
-      .limit(50)
+      .sort({ updatedAt: -1 })
       .lean();
 
-    const result = chats.map((chat) => {
-      const otherUser = chat.participants.find(
-        (p) => p._id.toString() !== userId.toString()
-      );
-
-      return {
-        _id: chat._id,
-        participants: chat.participants,
-        otherUser: otherUser || null,
-        lastMessage: chat.lastMessage || "",
-        updatedAt: chat.updatedAt,
-      };
-    });
-
-    res.json(result);
+    res.json(chats);
   } catch (err) {
     console.error("CHAT LIST ERROR:", err);
     res.status(500).json({ message: "Server error", error: err.message });
