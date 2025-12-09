@@ -5,39 +5,6 @@ const Notification = require("../models/notification.model");
 /* =========================
    START CHAT
 ========================= */
-
-const receiverId = chat.participants.find(
-  (p) => p.toString() !== meId.toString()
-);
-
-// 1. Simpan notifikasi ke database
-await Notification.create({
-  user: receiverId,
-  fromUser: meId,
-  text,
-  chatId,
-  isRead: false,
-});
-
-// 2. Emit notifikasi realtime via socket.io
-const io = req.app.get("io");
-const onlineUsers = req.app.get("onlineUsers");
-
-if (io) {
-  const receiverSocketId = onlineUsers.get(receiverId.toString());
-
-  if (receiverSocketId) {
-    io.to(receiverSocketId).emit("chat:notification", {
-      text,
-      chatId,
-      senderId: meId,
-      avatarUrl: req.user.avatarUrl,
-      senderName: req.user.displayName,
-      senderUsername: req.user.username,
-      createdAt: new Date().toISOString(),
-    });
-  }
-}
 exports.startChat = async (req, res) => {
   try {
     const meId = req.session.userId;
@@ -101,11 +68,16 @@ exports.sendMessage = async (req, res) => {
     const { chatId } = req.params;
     const { text } = req.body;
 
+    if (!meId) return res.status(401).json({ message: "Unauthorized" });
     if (!text || !text.trim())
-      return res.status(400).json({ message: "Text required" });
+      return res.status(400).json({ message: "Text is required" });
 
     const chat = await Chat.findById(chatId);
     if (!chat) return res.status(404).json({ message: "Chat not found" });
+
+    if (!chat.participants.some((p) => p.toString() === meId.toString())) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
 
     const newMessage = {
       sender: meId,
@@ -117,27 +89,56 @@ exports.sendMessage = async (req, res) => {
     chat.lastMessage = text.trim();
     await chat.save();
 
+    // --- Populate sender
+    await chat.populate("participants", "username displayName avatarUrl");
+
+    const savedMessage = chat.messages[chat.messages.length - 1];
+
+    // --- Identify receiver
+    const receiver = chat.participants.find(
+      (p) => p._id.toString() !== meId.toString()
+    );
+
+    // --- Save notification
+    await Notification.create({
+      user: receiver._id,
+      fromUser: meId,
+      text: text.trim(),
+      chatId: chat._id,
+      isRead: false,
+    });
+
+    // --- Emit NOTIFICATION SOCKET
     const io = req.app.get("io");
     const onlineUsers = req.app.get("onlineUsers");
 
-    if (io) {
-      io.to(chatId).emit("new_message", newMessage);
+    if (io && onlineUsers.has(receiver._id.toString())) {
+      const receiverSocket = onlineUsers.get(receiver._id.toString());
 
-      const receiverId = chat.participants.find(
-        (p) => p.toString() !== meId.toString()
-      );
-
-      const receiverSocket = onlineUsers.get(receiverId.toString());
-      if (receiverSocket) {
-        io.to(receiverSocket).emit("chat:notification", {
-          text,
-          senderId: meId,
-          chatId,
-        });
-      }
+      io.to(receiverSocket).emit("chat:notification", {
+        senderId: meId,
+        senderName: chat.participants.find(
+          (p) => p._id.toString() === meId.toString()
+        ).displayName,
+        avatarUrl: chat.participants.find(
+          (p) => p._id.toString() === meId.toString()
+        ).avatarUrl,
+        text: text.trim(),
+        chatId: chat._id,
+      });
     }
 
-    res.status(201).json(newMessage);
+    // --- Emit message to room
+    // Populate sender agar socket mengirim data lengkap
+    const populatedMessage = await Chat.populate(savedMessage, {
+      path: "sender",
+      select: "displayName username avatarUrl",
+    });
+
+    // Emit realtime message
+    io.to(chatId.toString()).emit("new_message", populatedMessage);
+
+    res.status(201).json(populatedMessage);
   } catch (err) {
     console.error("SEND MESSAGE ERROR:", err);
     res.status(500).json({ message: "Server error", error: err.message });

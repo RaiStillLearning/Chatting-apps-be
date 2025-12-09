@@ -57,7 +57,6 @@ app.get("/", (req, res) => {
 });
 
 // CHAT ROUTES
-app.use("/api", userRoutes);
 app.use("/api", chatRoutes);
 
 // DEBUG: LIST ROUTES (SESUDAH SEMUA ROUTE DIMOUNT)
