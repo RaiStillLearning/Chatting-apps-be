@@ -13,7 +13,7 @@ const server = http.createServer(app);
 // 3. Pasang Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: "https://rumpi-one.vercel.app/",
+    origin: "https://rumpi-one.vercel.app",
     credentials: true,
   },
 });
