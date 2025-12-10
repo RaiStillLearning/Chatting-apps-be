@@ -44,7 +44,6 @@ exports.googleCallback = async (req, res) => {
 
     let user = await User.findOne({ email: payload.email });
 
-    // CREATE NEW USER
     if (!user) {
       const base = payload.email.split("@")[0];
       const username = base.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -59,22 +58,14 @@ exports.googleCallback = async (req, res) => {
       });
     }
 
-    // -------------------------
-    // ⭐ VERY IMPORTANT FIX ⭐
-    // Pastikan SESSION DISIMPAN sebelum redirect!!!
-    // -------------------------
     req.session.userId = user._id;
 
     req.session.save(() => {
-      console.log("SESSION SAVED:", req.session);
-
       return res.redirect(
         `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?redirect=${redirectPath}`
       );
     });
   } catch (err) {
-    console.error("GOOGLE AUTH ERROR:", err);
-
     return res.redirect(
       `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?error=auth_failed`
     );

@@ -41,16 +41,17 @@ app.use(
     saveUninitialized: false,
 
     store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URI,
+      mongoUrl: mongoUrl,
       collectionName: "sessions",
       ttl: 14 * 24 * 60 * 60,
     }),
 
     cookie: {
       httpOnly: true,
-      secure: true, // Wajib (Railway pakai HTTPS)
-      sameSite: "none", // Wajib untuk cross-domain
-      maxAge: 24 * 60 * 60 * 1000 * 7,
+      secure: true, // Railway HTTPS
+      sameSite: "none", // cross-domain
+      domain: "chatting-apps-be.up.railway.app",
+      maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   })
 );
