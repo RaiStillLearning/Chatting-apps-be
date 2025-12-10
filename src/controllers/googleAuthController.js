@@ -16,10 +16,11 @@ exports.googleAuth = (req, res) => {
   const url = client.generateAuthUrl({
     access_type: "offline",
     scope: ["profile", "email"],
+    prompt: "select_account", // ⭐ Fix user stuck login loop
     state: encodeURIComponent(redirectPath),
   });
 
-  res.redirect(url);
+  return res.redirect(url);
 };
 
 /* =========================
@@ -43,9 +44,10 @@ exports.googleCallback = async (req, res) => {
 
     let user = await User.findOne({ email: payload.email });
 
+    // CREATE NEW USER
     if (!user) {
-      const usernameBase = payload.email.split("@")[0];
-      const username = usernameBase.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const base = payload.email.split("@")[0];
+      const username = base.toLowerCase().replace(/[^a-z0-9]/g, "");
 
       user = await User.create({
         email: payload.email,
@@ -57,14 +59,22 @@ exports.googleCallback = async (req, res) => {
       });
     }
 
-    // ✅ SIMPAN KE SESSION (BUKAN JWT)
+    // -------------------------
+    // ⭐ VERY IMPORTANT FIX ⭐
+    // Pastikan SESSION DISIMPAN sebelum redirect!!!
+    // -------------------------
     req.session.userId = user._id;
 
-    return res.redirect(
-      `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?redirect=${redirectPath}`
-    );
+    req.session.save(() => {
+      console.log("SESSION SAVED:", req.session);
+
+      return res.redirect(
+        `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?redirect=${redirectPath}`
+      );
+    });
   } catch (err) {
     console.error("GOOGLE AUTH ERROR:", err);
+
     return res.redirect(
       `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?error=auth_failed`
     );

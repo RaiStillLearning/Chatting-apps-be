@@ -1,6 +1,6 @@
 const express = require("express");
 const session = require("express-session");
-const MongoStore = require("connect-mongo"); // ✔ FIX: import benar
+const MongoStore = require("connect-mongo");
 const cors = require("cors");
 
 const authRoutes = require("./routes/authRoutes");
@@ -18,18 +18,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // --------------------
-// CORS (FIX FOR RAILWAY + NEXTJS)
+// CORS FIX (Railway → Vercel)
 // --------------------
 app.use(
   cors({
-    origin: "https://rumpi-one.vercel.app", // domain FE kamu
+    origin: "https://rumpi-one.vercel.app",
     credentials: true,
   })
 );
 
 // --------------------
-// SESSION (FIXED VERSION, ONLY ONE!)
+// SESSION FIX
 // --------------------
+const mongoUrl = process.env.MONGO_URL || process.env.MONGO_URI;
+
 app.use(
   session({
     name: "nextjs-auth-session",
@@ -38,32 +40,33 @@ app.use(
     saveUninitialized: false,
 
     store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URI,
-      ttl: 14 * 24 * 60 * 60, // simpan session 14 hari
+      mongoUrl: mongoUrl,
+      collectionName: "sessions",
+      ttl: 14 * 24 * 60 * 60,
     }),
 
     cookie: {
       httpOnly: true,
-      secure: true, // ✔ WAJIB untuk Production (Railway HTTPS)
-      sameSite: "none", // ✔ WAJIB untuk cookie cross-domain
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 hari
+      secure: true, // wajib di Railway
+      sameSite: "none", // wajib untuk cross-domain
+      maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   })
 );
 
 // --------------------
-// LIST ROUTES
+// SESSION LOGGER (WAJIB ADA DI SINI → sebelum routes)
 // --------------------
-const list = require("express-list-endpoints");
-console.log(list(app));
-
-console.log(">>> FILE index.js TERLOAD <<<");
+app.use((req, res, next) => {
+  console.log("SESSION BEFORE ROUTES:", req.session);
+  next();
+});
 
 // --------------------
 // ROUTES
 // --------------------
-app.use("/api/auth", authRoutes);
-app.use("/api/auth", googleAuthRoutes);
+app.use("/api/auth", authRoutes); // register, login manual
+app.use("/api/auth", googleAuthRoutes); // google login
 app.use("/api", notificationRoutes);
 app.use("/api", userRoutes);
 app.use("/api", chatRoutes);
@@ -72,10 +75,4 @@ app.get("/", (req, res) => {
   res.send("API is running...");
 });
 
-app.use((req, res, next) => {
-  console.log("SESSION CHECK:", req.session);
-  next();
-});
-
-// --------------------
 module.exports = app;
