@@ -4,6 +4,11 @@ const User = require("../models/user.model");
    PROTECT MIDDLEWARE (SESSION BASED)
 ========================= */
 const protect = async (req, res, next) => {
+  app.use((req, res, next) => {
+    console.log("COOKIE DITERIMA DARI FRONTEND:", req.headers.cookie);
+    next();
+  });
+
   try {
     // 1. Cek apakah ada session
     if (!req.session || !req.session.userId) {

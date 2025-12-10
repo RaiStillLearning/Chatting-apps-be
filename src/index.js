@@ -22,7 +22,8 @@ app.use(express.urlencoded({ extended: true }));
 // --------------------
 app.use(
   cors({
-    origin: "https://rumpi-one.vercel.app",
+    origin: ["https://rumpi-one.vercel.app"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
@@ -40,16 +41,16 @@ app.use(
     saveUninitialized: false,
 
     store: MongoStore.create({
-      mongoUrl: mongoUrl,
+      mongoUrl: process.env.MONGO_URI,
       collectionName: "sessions",
       ttl: 14 * 24 * 60 * 60,
     }),
 
     cookie: {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 1000 * 60 * 60 * 24 * 7,
+      secure: true, // Wajib (Railway pakai HTTPS)
+      sameSite: "none", // Wajib untuk cross-domain
+      maxAge: 24 * 60 * 60 * 1000 * 7,
     },
   })
 );
