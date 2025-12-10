@@ -27,6 +27,8 @@ exports.googleAuth = (req, res) => {
    STEP 2: CALLBACK GOOGLE
 ========================= */
 exports.googleCallback = async (req, res) => {
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Origin", "https://rumpi-one.vercel.app");
   const code = req.query.code;
   const redirectPath = decodeURIComponent(
     req.query.state || "/Rumpi/Dashboard"

@@ -3,50 +3,41 @@ const User = require("../models/user.model");
 const { v4: uuidv4 } = require("uuid");
 
 /* =========================
-   SIGNUP (UNTUK NEXT.JS)
+   SIGNUP (Next.js Simple)
 ========================= */
 exports.signup = async (req, res) => {
   try {
-    console.log("SIGNUP BODY:", req.body); // ✅ DEBUG (penting)
-    console.log("✅ MASUK KE SIGNUP");
-
     const { name, email, password, confirmPassword } = req.body;
 
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !email || !password || !confirmPassword)
       return res.status(400).json({ message: "Semua field wajib diisi" });
-    }
 
-    if (password !== confirmPassword) {
+    if (password !== confirmPassword)
       return res.status(400).json({ message: "Password tidak sama" });
-    }
 
-    if (password.length < 6) {
+    if (password.length < 6)
       return res.status(400).json({ message: "Password minimal 6 karakter" });
-    }
 
     const emailExist = await User.findOne({ email });
-    if (emailExist) {
+    if (emailExist)
       return res.status(400).json({ message: "Email sudah terdaftar" });
-    }
 
-    // ✅ AUTO GENERATE USERNAME DARI EMAIL
-    let usernameBase = email
+    // generate username otomatis
+    let base = email
       .split("@")[0]
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "");
-
-    let username = usernameBase;
-    let counter = 1;
+    let username = base;
+    let count = 1;
 
     while (await User.findOne({ username })) {
-      username = `${usernameBase}${counter++}`;
+      username = `${base}${count++}`;
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      displayName: name, // ✅ MAPPING BENAR
+      displayName: name,
       username,
       email,
       passwordHash,
@@ -55,7 +46,7 @@ exports.signup = async (req, res) => {
 
     req.session.userId = user._id;
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Signup berhasil",
       user: {
         id: user._id,
@@ -70,34 +61,26 @@ exports.signup = async (req, res) => {
 };
 
 /* =========================
-   REGISTER (MANUAL)
+   REGISTER (Manual)
 ========================= */
 exports.register = async (req, res) => {
-  console.log("❌ MASUK KE REGISTER");
   try {
     const { displayName, username, email, password, confirmPassword } =
       req.body;
 
-    if (!displayName || !username || !email || !password || !confirmPassword) {
+    if (!displayName || !username || !email || !password || !confirmPassword)
       return res.status(400).json({ message: "Semua field wajib diisi" });
-    }
 
-    if (password !== confirmPassword) {
+    if (password !== confirmPassword)
       return res.status(400).json({ message: "Password tidak sama" });
-    }
 
-    const emailExist = await User.findOne({ email });
-    if (emailExist) {
+    if (await User.findOne({ email }))
       return res.status(400).json({ message: "Email sudah terdaftar" });
-    }
 
-    const usernameExist = await User.findOne({ username });
-    if (usernameExist) {
+    if (await User.findOne({ username }))
       return res.status(400).json({ message: "Username sudah digunakan" });
-    }
 
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       displayName,
@@ -109,7 +92,7 @@ exports.register = async (req, res) => {
 
     req.session.userId = user._id;
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Register berhasil",
       user: {
         id: user._id,
@@ -118,7 +101,8 @@ exports.register = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("REGISTER ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -130,18 +114,15 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user || !user.passwordHash) {
+    if (!user || !user.passwordHash)
       return res.status(400).json({ message: "Akun tidak valid" });
-    }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Password salah" });
-    }
+    if (!isMatch) return res.status(400).json({ message: "Password salah" });
 
     req.session.userId = user._id;
 
-    res.json({
+    return res.json({
       message: "Login berhasil",
       user: {
         id: user._id,
@@ -150,6 +131,7 @@ exports.login = async (req, res) => {
       },
     });
   } catch (err) {
+    console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -159,25 +141,30 @@ exports.login = async (req, res) => {
 ========================= */
 exports.logout = (req, res) => {
   req.session.destroy(() => {
-    res.clearCookie("connect.sid");
+    res.clearCookie("nextjs-auth-session", {
+      secure: true,
+      sameSite: "none",
+    });
+
     res.json({ message: "Logout berhasil" });
   });
 };
 
 /* =========================
-   ME (SESSION CHECK)
+   GET CURRENT USER /me
 ========================= */
 exports.me = async (req, res) => {
   try {
-    if (!req.session.userId) {
+    if (!req.session.userId)
       return res.status(401).json({ message: "Belum login" });
-    }
 
     const user = await User.findById(req.session.userId).select(
       "-passwordHash"
     );
-    res.json(user);
+
+    return res.json(user);
   } catch (err) {
+    console.error("ME ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -190,19 +177,15 @@ exports.forgotPassword = async (req, res) => {
     const { email } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user) {
+    if (!user)
       return res.status(404).json({ message: "Email tidak ditemukan" });
-    }
 
     const token = uuidv4();
     user.resetToken = token;
-    user.resetTokenExpire = Date.now() + 1000 * 60 * 10;
+    user.resetTokenExpire = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    res.json({
-      message: "Token reset berhasil dibuat",
-      token,
-    });
+    return res.json({ message: "Token reset dibuat", token });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
@@ -213,19 +196,14 @@ exports.forgotPassword = async (req, res) => {
 ========================= */
 exports.resetPassword = async (req, res) => {
   try {
-    const { password } = req.body;
-
     const user = await User.findOne({
       resetToken: req.params.token,
       resetTokenExpire: { $gt: Date.now() },
     });
 
-    if (!user) {
-      return res.status(400).json({ message: "Token tidak valid" });
-    }
+    if (!user) return res.status(400).json({ message: "Token tidak valid" });
 
-    const salt = await bcrypt.genSalt(10);
-    user.passwordHash = await bcrypt.hash(password, salt);
+    user.passwordHash = await bcrypt.hash(req.body.password, 10);
     user.resetToken = undefined;
     user.resetTokenExpire = undefined;
     await user.save();

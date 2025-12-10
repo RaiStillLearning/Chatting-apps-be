@@ -11,27 +11,29 @@ const notificationRoutes = require("./routes/notificationRoutes");
 
 const app = express();
 
-// --------------------
-// BODY PARSER
-// --------------------
+// -----------------------------------------------------
+// FIX 1: Body Parser
+// -----------------------------------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --------------------
-// CORS FIX (Railway → Vercel)
-// --------------------
+// -----------------------------------------------------
+// FIX 2: CORS for Next.js on Vercel
+// -----------------------------------------------------
 app.use(
   cors({
-    origin: ["https://rumpi-one.vercel.app"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: "https://rumpi-one.vercel.app",
     credentials: true,
   })
 );
 
-// --------------------
-// SESSION FIX
-// --------------------
-const mongoUrl = process.env.MONGO_URL || process.env.MONGO_URI;
+// -----------------------------------------------------
+// FIX 3: SESSION CONFIG (FINAL WORKING VERSION)
+// -----------------------------------------------------
+if (!process.env.MONGO_URI) {
+  console.error("❌ ERROR: MONGO_URI tidak ditemukan di ENV Railway!");
+  process.exit(1);
+}
 
 app.use(
   session({
@@ -41,32 +43,32 @@ app.use(
     saveUninitialized: false,
 
     store: MongoStore.create({
-      mongoUrl: mongoUrl,
+      mongoUrl: process.env.MONGO_URI,
       collectionName: "sessions",
       ttl: 14 * 24 * 60 * 60,
     }),
 
     cookie: {
       httpOnly: true,
-      secure: true, // Railway HTTPS
-      sameSite: "none", // cross-domain
-      domain: "chatting-apps-be.up.railway.app",
-      maxAge: 1000 * 60 * 60 * 24 * 7,
+      secure: true, // Railway = HTTPS
+      sameSite: "none", // Wajib front-end beda domain
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 hari
     },
   })
 );
 
-// --------------------
-// ROUTES
-// --------------------
-app.use("/api/auth", authRoutes); // register, login manual
-app.use("/api/auth", googleAuthRoutes); // google login
+// -----------------------------------------------------
+// FIX 4: ROUTES
+// -----------------------------------------------------
+app.use("/api/auth", authRoutes);
+app.use("/api/auth", googleAuthRoutes);
 app.use("/api", notificationRoutes);
 app.use("/api", userRoutes);
 app.use("/api", chatRoutes);
 
+// -----------------------------------------------------
 app.get("/", (req, res) => {
-  res.send("API is running...");
+  res.send("API Running Successfully");
 });
 
 module.exports = app;
