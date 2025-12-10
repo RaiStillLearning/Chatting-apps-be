@@ -38,7 +38,7 @@ app.use(
     saveUninitialized: false,
 
     store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URL,
+      mongoUrl: process.env.MONGO_URI,
       ttl: 14 * 24 * 60 * 60, // simpan session 14 hari
     }),
 
@@ -70,6 +70,11 @@ app.use("/api", chatRoutes);
 
 app.get("/", (req, res) => {
   res.send("API is running...");
+});
+
+app.use((req, res, next) => {
+  console.log("SESSION CHECK:", req.session);
+  next();
 });
 
 // --------------------
