@@ -27,8 +27,6 @@ exports.googleAuth = (req, res) => {
    STEP 2: CALLBACK GOOGLE
 ========================= */
 exports.googleCallback = async (req, res) => {
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Origin", "https://rumpi-one.vercel.app");
   const code = req.query.code;
   const redirectPath = decodeURIComponent(
     req.query.state || "/Rumpi/Dashboard"
@@ -48,7 +46,13 @@ exports.googleCallback = async (req, res) => {
 
     if (!user) {
       const base = payload.email.split("@")[0];
-      const username = base.toLowerCase().replace(/[^a-z0-9]/g, "");
+      let username = base.toLowerCase().replace(/[^a-z0-9]/g, "");
+      let count = 1;
+
+      // Pastikan username unique
+      while (await User.findOne({ username })) {
+        username = `${base}${count++}`;
+      }
 
       user = await User.create({
         email: payload.email,
@@ -62,14 +66,22 @@ exports.googleCallback = async (req, res) => {
 
     req.session.userId = user._id;
 
-    req.session.save(() => {
-      return res.redirect(
-        `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?redirect=${redirectPath}`
-      );
+    // ⭐ FIX: Tunggu session tersimpan di MongoDB
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
-  } catch (err) {
+
+    // ⭐ Redirect langsung ke Dashboard (skip /Auth/callback)
     return res.redirect(
-      `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?error=auth_failed`
+      `${process.env.NEXT_PUBLIC_FRONTEND_URL}${redirectPath}`
+    );
+  } catch (err) {
+    console.error("GOOGLE AUTH ERROR:", err);
+    return res.redirect(
+      `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/Login?error=auth_failed`
     );
   }
 };

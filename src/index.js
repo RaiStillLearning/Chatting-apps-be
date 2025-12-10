@@ -41,22 +41,30 @@ app.use(
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-
+    proxy: true, // ⭐ Wajib true di Railway/production
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
-      collectionName: "sessions",
-      ttl: 14 * 24 * 60 * 60,
+      touchAfter: 24 * 3600, // Update session setiap 24 jam
     }),
-
     cookie: {
       httpOnly: true,
-      secure: true, // Railway = HTTPS
-      sameSite: "none", // Wajib front-end beda domain
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 hari
+      secure: true, // ⭐ Wajib true di production (HTTPS)
+      sameSite: "none", // ⭐ Wajib "none" untuk cross-origin
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+      domain: undefined, // Jangan set domain di Railway
     },
   })
 );
 
+// Debug session
+app.use((req, res, next) => {
+  console.log("🔍 SESSION DEBUG:", {
+    sessionID: req.sessionID,
+    userId: req.session?.userId,
+    cookie: req.session?.cookie,
+  });
+  next();
+});
 // -----------------------------------------------------
 // FIX 4: ROUTES
 // -----------------------------------------------------
