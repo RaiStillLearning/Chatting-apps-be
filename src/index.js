@@ -47,20 +47,14 @@ app.use(
 
     cookie: {
       httpOnly: true,
-      secure: true, // wajib di Railway
-      sameSite: "none", // wajib untuk cross-domain
+      secure: true,
+      sameSite: "none",
+      domain: "rumpi-one.vercel.app", // ⭐ FIX PALING PENTING
+      path: "/",
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   })
 );
-
-// --------------------
-// SESSION LOGGER (WAJIB ADA DI SINI → sebelum routes)
-// --------------------
-app.use((req, res, next) => {
-  console.log("SESSION BEFORE ROUTES:", req.session);
-  next();
-});
 
 // --------------------
 // ROUTES
