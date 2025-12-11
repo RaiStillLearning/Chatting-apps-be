@@ -11,30 +11,22 @@ const notificationRoutes = require("./routes/notificationRoutes");
 
 const app = express();
 
-// ⭐ MUST untuk Railway
+// ⭐ HARUS SEBELUM SESSION
 app.set("trust proxy", 1);
 
-// ⭐ Body Parser
+// ⭐ PARSER
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ⭐ CORS - BEFORE session
+// ⭐ CORS
 app.use(
   cors({
-    origin: (origin, callback) => {
-      callback(null, origin); // 🔥 izinkan domain mana pun yang datang
-    },
+    origin: true, // 🔥 auto detect FE origin
     credentials: true,
   })
 );
 
-// ⭐ SESSION CONFIG
-if (!process.env.MONGO_URI) {
-  console.error("❌ ERROR: MONGO_URI tidak ditemukan!");
-  process.exit(1);
-}
-app.set("trust proxy", 1);
-
+// ⭐ SESSION
 app.use(
   session({
     name: "nextjs-auth-session",
@@ -56,7 +48,7 @@ app.use(
   })
 );
 
-// ⭐ Debug Logging
+// ⭐ DEBUG LOGGING
 app.use((req, res, next) => {
   console.log("📍 REQUEST", {
     path: req.path,
@@ -69,14 +61,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// ⭐ Routes
+// ⭐ ROUTES
 app.use("/api/auth", authRoutes);
 app.use("/api/auth", googleAuthRoutes);
 app.use("/api", notificationRoutes);
 app.use("/api", userRoutes);
 app.use("/api", chatRoutes);
 
-// Default route
 app.get("/", (req, res) => {
   res.json({
     message: "API Running",
