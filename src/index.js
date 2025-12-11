@@ -30,13 +30,12 @@ app.use(
 app.use(
   session({
     name: "nextjs-auth-session",
-    secret: process.env.SESSION_SECRET || "fallback-secret",
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     proxy: true,
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
-      touchAfter: 24 * 3600,
     }),
     cookie: {
       httpOnly: true,
@@ -44,6 +43,7 @@ app.use(
       sameSite: "none",
       maxAge: 1000 * 60 * 60 * 24 * 7,
       path: "/",
+      domain: "rumpi-one.vercel.app", // INI WAJIB DALAM KONDISI KAMU
     },
   })
 );
