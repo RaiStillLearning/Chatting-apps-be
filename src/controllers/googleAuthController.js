@@ -27,14 +27,14 @@ exports.googleAuth = (req, res) => {
    STEP 2: CALLBACK GOOGLE
 ========================= */
 exports.googleCallback = async (req, res) => {
-  const code = req.query.code;
-  const redirectPath = decodeURIComponent(
-    req.query.state || "/Rumpi/Dashboard"
-  );
-
   try {
-    const { tokens } = await client.getToken(code);
+    const code = req.query.code;
+    const redirectPath = decodeURIComponent(
+      req.query.state || "/Rumpi/Dashboard"
+    );
 
+    // Get tokens
+    const { tokens } = await client.getToken(code);
     const ticket = await client.verifyIdToken({
       idToken: tokens.id_token,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -43,20 +43,10 @@ exports.googleCallback = async (req, res) => {
     const payload = ticket.getPayload();
 
     let user = await User.findOne({ email: payload.email });
-
     if (!user) {
-      const base = payload.email.split("@")[0];
-      let username = base.toLowerCase().replace(/[^a-z0-9]/g, "");
-      let count = 1;
-
-      // Pastikan username unique
-      while (await User.findOne({ username })) {
-        username = `${base}${count++}`;
-      }
-
       user = await User.create({
         email: payload.email,
-        username,
+        username: payload.email.split("@")[0],
         displayName: payload.name,
         avatarUrl: payload.picture,
         provider: "google",
@@ -66,22 +56,15 @@ exports.googleCallback = async (req, res) => {
 
     req.session.userId = user._id;
 
-    // ⭐ FIX: Tunggu session tersimpan di MongoDB
-    await new Promise((resolve, reject) => {
-      req.session.save((err) => {
-        if (err) reject(err);
-        else resolve();
-      });
+    req.session.save(() => {
+      res.redirect(
+        `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?redirect=${redirectPath}`
+      );
     });
-
-    // ⭐ Redirect langsung ke Dashboard (skip /Auth/callback)
-    return res.redirect(
-      `${process.env.NEXT_PUBLIC_FRONTEND_URL}${redirectPath}`
-    );
   } catch (err) {
-    console.error("GOOGLE AUTH ERROR:", err);
-    return res.redirect(
-      `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/Login?error=auth_failed`
+    console.error(err);
+    res.redirect(
+      `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?error=1`
     );
   }
 };
