@@ -21,28 +21,12 @@ app.use(express.urlencoded({ extended: true }));
 // ⭐ CORS - BEFORE session
 app.use(
   cors({
-    origin: ["https://rumpi-one.vercel.app", "http://localhost:3000"],
+    origin: (origin, callback) => {
+      callback(null, origin); // 🔥 izinkan domain mana pun yang datang
+    },
     credentials: true,
   })
 );
-
-// ⭐ FIX WILDCARD OPTIONS (Express 5 compatible)
-app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET,POST,PUT,DELETE,OPTIONS"
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization"
-    );
-    return res.sendStatus(200);
-  }
-  next();
-});
 
 // ⭐ SESSION CONFIG
 if (!process.env.MONGO_URI) {
