@@ -21,8 +21,10 @@ app.use(express.urlencoded({ extended: true }));
 // ⭐ CORS
 app.use(
   cors({
-    origin: true, // 🔥 auto detect FE origin
+    origin: ["https://rumpi-one.vercel.app", "http://localhost:3000"],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type"],
   })
 );
 
