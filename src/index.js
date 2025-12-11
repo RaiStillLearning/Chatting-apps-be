@@ -33,6 +33,7 @@ if (!process.env.MONGO_URI) {
   console.error("❌ ERROR: MONGO_URI tidak ditemukan!");
   process.exit(1);
 }
+app.set("trust proxy", 1);
 
 app.use(
   session({
