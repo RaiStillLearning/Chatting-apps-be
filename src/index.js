@@ -45,7 +45,6 @@ app.use(
       sameSite: "none",
       maxAge: 1000 * 60 * 60 * 24 * 7,
       path: "/",
-      domain: "rumpi-one.vercel.app", // INI WAJIB DALAM KONDISI KAMU
     },
   })
 );
