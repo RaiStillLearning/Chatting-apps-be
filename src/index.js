@@ -75,5 +75,7 @@ app.get("/", (req, res) => {
     session: req.session,
   });
 });
+console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
+console.log("GOOGLE_REDIRECT_URI:", process.env.GOOGLE_REDIRECT_URI);
 
 module.exports = app;
