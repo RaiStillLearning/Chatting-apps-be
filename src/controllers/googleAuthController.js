@@ -58,7 +58,7 @@ exports.googleCallback = async (req, res) => {
 
     req.session.save(() => {
       res.redirect(
-        `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?redirect=${redirectPath}`
+        `${process.env.NEXT_PUBLIC_FRONTEND_URL}/api/auth/google/callback?redirect=${redirectPath}`
       );
     });
   } catch (err) {
