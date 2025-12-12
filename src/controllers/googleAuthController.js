@@ -33,7 +33,6 @@ exports.googleCallback = async (req, res) => {
       req.query.state || "/Rumpi/Dashboard"
     );
 
-    // Get tokens
     const { tokens } = await client.getToken(code);
     const ticket = await client.verifyIdToken({
       idToken: tokens.id_token,
@@ -57,6 +56,7 @@ exports.googleCallback = async (req, res) => {
     req.session.userId = user._id;
 
     req.session.save(() => {
+      // 🔥 FIX: redirect ke callback NEXTJS, bukan /Auth/callback
       res.redirect(
         `${process.env.NEXT_PUBLIC_FRONTEND_URL}/api/auth/google/callback?redirect=${redirectPath}`
       );
@@ -64,7 +64,7 @@ exports.googleCallback = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.redirect(
-      `${process.env.NEXT_PUBLIC_FRONTEND_URL}/Auth/callback?error=1`
+      `${process.env.NEXT_PUBLIC_FRONTEND_URL}/api/auth/google/callback?error=1`
     );
   }
 };
